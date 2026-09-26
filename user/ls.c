@@ -30,6 +30,8 @@ ls(char *path)
   struct dirent de;
   struct stat st;
 
+  // path -> fd -> st
+
   if((fd = open(path, 0)) < 0){
     fprintf(2, "ls: cannot open %s\n", path);
     return;
@@ -54,11 +56,15 @@ ls(char *path)
     strcpy(buf, path);
     p = buf+strlen(buf);
     *p++ = '/';
+    // 目录在磁盘中就是一个普通文件，它的数据块存放着连续的目录项
     while(read(fd, &de, sizeof(de)) == sizeof(de)){
+      //跳过空的目录项，删除一个文件时，把对应的inum改为0.
       if(de.inum == 0)
         continue;
       memmove(p, de.name, DIRSIZ);
+      //如果文件名长度正好等于DIRSIZ，那么de.name里没有\0，所以补充\0，保证p指向的是一段合法的字符串
       p[DIRSIZ] = 0;
+      //获取子项文件信息
       if(stat(buf, &st) < 0){
         printf("ls: cannot stat %s\n", buf);
         continue;

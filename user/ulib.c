@@ -75,7 +75,8 @@ stat(const char *n, struct stat *st)
 {
   int fd;
   int r;
-
+  
+  //根据路径buf找到inode，然后填充st。
   fd = open(n, O_RDONLY);
   if(fd < 0)
     return -1;

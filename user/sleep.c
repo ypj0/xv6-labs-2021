@@ -11,5 +11,4 @@ int main(int argc, char *argv[]) {
     uint n = atoi(argv[1]);
     int ret = sleep(n);
     exit(ret);
-
 }
