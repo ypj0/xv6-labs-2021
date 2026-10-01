@@ -26,6 +26,7 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
+
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
 // guard page.
@@ -120,6 +121,15 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
+  #ifdef LAB_PGTBL
+  if((p->spid = (struct usyscall *)kalloc()) == 0) {
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+  p->spid->pid = p->pid;
+  #endif
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -164,6 +174,11 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
+  #ifdef LAB_PGTBL
+  if(p->spid)
+    kfree((void *)p->spid);
+  p->spid = 0;
+  #endif
 }
 
 // Create a user page table for a given process,
@@ -195,7 +210,15 @@ proc_pagetable(struct proc *p)
     uvmfree(pagetable, 0);
     return 0;
   }
-
+  #ifdef LAB_PGTBL
+  if(mappages(pagetable, USYSCALL, PGSIZE,
+              (uint64)(p->spid), PTE_R | PTE_U) < 0) {
+                uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+                uvmunmap(pagetable, TRAPFRAME, 1, 0);
+                uvmfree(pagetable, 0);
+                return 0;
+              }
+  #endif
   return pagetable;
 }
 
@@ -206,6 +229,9 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
   uvmunmap(pagetable, TRAMPOLINE, 1, 0);
   uvmunmap(pagetable, TRAPFRAME, 1, 0);
+#ifdef LAB_PGTBL
+  uvmunmap(pagetable, USYSCALL, 1, 0);
+#endif
   uvmfree(pagetable, sz);
 }
 
